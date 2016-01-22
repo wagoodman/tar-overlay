@@ -1,0 +1,316 @@
+#!/bin/sh
+
+# There shouldn't be any undefined variables or errors. If so, exit
+set -e  # exit on error
+set -u  # error on undefined
+
+# A non-interactive, non-login shell (or similar) does not source the
+# /etc/profile env scripts. This should be done manually.
+OVERLAY_BIN_PATH=$(dirname $(readlink -f $0))
+OVERLAY_STORE_PATH=$(realpath $OVERLAY_BIN_PATH/../store)
+OVERLAY_IMAGES_DIR=$OVERLAY_STORE_PATH/images
+OVERLAY_INSTANCE_DIR=$OVERLAY_STORE_PATH/instances
+
+RED=$(tput setaf 1)$(tput bold)
+NORMAL=$(tput sgr0)
+BOLD=$(tput bold)
+YELLOW=$(tput setaf 3)$(tput bold)
+GREEN=$(tput setaf 2)$(tput bold)
+
+if [[ ! -d "$OVERLAY_IMAGES_DIR" ]]; then
+    echo "${YELLOW}The dir to store images does not exist, creating... ${NORMAL}"
+    mkdir -p $OVERLAY_IMAGES_DIR
+fi
+
+if [[ ! -d "$OVERLAY_INSTANCE_DIR" ]]; then
+    echo "${YELLOW}The dir to store instances does not exist, craeting... ${NORMAL}"
+    mkdir -p $OVERLAY_INSTANCE_DIR
+fi
+
+# Ctrl-C immediately exits the control script
+trap "echo '${RED}Canceling operation and exiting.${NORMAL}'; exit" SIGHUP SIGINT SIGTERM
+
+# Make sure only root can run our script. The use of exec means "replace
+# this program by", which effectively ends its execution and starts the
+# new program, launched by sudo as user root, to run from the top of
+# this script (without creating a new process).
+[ $(whoami) = root ] || exec sudo $0 $*
+
+usage () {
+   echo "${BOLD}tar-overlay - Create and manage named overlayfs mounts backed by the contents from tar files.${NORMAL}"
+   echo
+   echo "   $(basename $0) [command] [options]"
+   echo
+   echo "${BOLD}Image commands:${NORMAL}"
+   echo "   install-image <tar-file>   Take the given tar and make it available as in immutable image."
+   echo "   list-images                List all known images."
+   echo
+   echo "${BOLD}Overlay Commands:${NORMAL}"
+   echo "   list-overlays                       List image instantiations."
+   echo "   create-overlay <name> <image-name>  Instantiate an image (make an instance)."
+   echo "   mount-overlay  <name>               Mount an instantiation for use."
+   echo "   umount-overlay <name>               Unmount an instantiation."
+   echo "   rename-overlay <name> <new name>    Rename the given instantiation."
+   echo "   info <name>                         Show all information regardin the given overlay name."
+   echo "   status <name>                       Shows if the given overlay is mounted."
+   echo "   reset-overlay <name>                Undo all changes made to original image."
+   echo "   show-changes <name>                 Show a tree of all modified files"
+   echo
+   echo "${BOLD}Future Commands:${NORMAL}"
+   echo "   rename-image <iamge-name>    Rename the given image."
+   echo "   delete-image <image-name>    Delete the given image."
+   echo "   mount-image                  Mounts an image directly (not advised)."
+   echo "   umount-image                 Unmounts a directly mounted image."
+   echo "   delete-overlay <name>        Delete the given instantiation."
+   echo "   mount-all-overlays           Mount all overlays"
+   echo "   unmount-all-overlays         Unmount all overlays"
+}
+
+getOverlayOpts () {
+    if [[ -z "$2" ]]; then
+        echo "${RED}Please specify an overlay instance name.${NORMAL}"
+        exit 1
+    fi
+
+    OVERLAY_NAME="$2"
+    OVERLAY_PATH="$OVERLAY_INSTANCE_DIR/$OVERLAY_NAME"
+
+    if [[ ! -d "$OVERLAY_PATH" ]]; then
+        echo "${RED}The overlay does not exist: '$OVERLAY_NAME' ${NORMAL}"
+        exit 1
+    fi
+}
+
+getImageOpts () {
+    if [[ -z "$2" ]]; then
+        echo "${RED}Please specify an image name.${NORMAL}"
+        exit 1
+    fi
+
+    IMG_NAME="$2"
+    IMG_PATH="$OVERLAY_IMAGE_DIR/$IMG_NAME"
+
+    if [[ ! -d "$IMG_PATH" ]]; then
+        echo "${RED}The image does not exist: '$IMG_NAME' ${NORMAL}"
+        exit 1
+    fi
+}
+
+# Only process arguments after the subcommand
+subcommand=$1;
+
+# Process the subcommand
+case "$subcommand" in
+install-image)
+   if [[ -z "$2" ]]; then
+       echo "${RED}Please specify a path to the tar.${NORMAL}"
+       echo "${BOLD}Usage:${NORMAL}"
+       echo "   $0 install-image <path-to-tar>"
+       exit 1
+   fi
+
+   IMG_TAR_PATH="$2"
+   IMG_TAR_NAME=$(basename "$IMG_TAR_PATH") # remove the path
+   IMG_NAME=$(basename -s .tar.gz "$IMG_TAR_PATH") # remove the .tar.gz extension
+   IMG_PATH=$OVERLAY_IMAGES_DIR/$IMG_NAME
+
+   if [[ -e "$IMG_PATH" ]]; then
+       echo "${RED}Image path already exists ($IMG_PATH).${NORMAL}"
+       exit 1
+   fi
+
+   filetype="$(file $IMG_TAR_PATH -bz)"
+   if [[ $filetype == *"tar archive"* && $filetype == *"gzip compressed"*  ]]
+   then
+       # proceed to untar and save the archive (only if successful untaring)
+       mkdir "$IMG_PATH"
+       echo "Staging to '$IMG_PATH'"
+       tar -xzf "$IMG_TAR_PATH" -C "$OVERLAY_IMAGES_DIR"
+       if [[ $? -eq 0 && "$IMG_TAR_PATH" != "$OVERLAY_IMAGES_DIR/$IMG_TAR_NAME"  ]]
+       then
+           mv "$IMG_TAR_PATH" "$OVERLAY_IMAGES_DIR/$IMG_TAR_NAME"
+       fi
+       echo "${BOLD}Complete!${NORMAL}"
+   else
+       echo "${RED}Given file is not a tar.gz file.${NORMAL}"
+   fi
+;;
+rename-image)
+    echo "${RED}Operation not implemented.${NORMAL}"
+    exit -1
+;;
+delete-image)
+    echo "${RED}Operation not implemented.${NORMAL}"
+    exit -1
+;;
+mount-image)
+    getImageOpts $*
+    echo "${RED}Operation not implemented.${NORMAL}"
+    exit -1
+;;
+umount-image)
+    getImageOpts $*
+    echo "${RED}Operation not implemented.${NORMAL}"
+    exit -1
+;;
+list-images)
+    echo "${BOLD}Persistent, read-only images:${NORMAL}"
+    images=($(ls -1d $OVERLAY_IMAGES_DIR/*/ | xargs -n 1 basename ))
+    for imageName in "${images[@]}"
+    do
+        echo "   $imageName"
+    done
+    exit $?
+;;
+list-overlays)
+    echo "${BOLD}Read-write image overlays:${NORMAL}"
+    images=($(ls -1d $OVERLAY_INSTANCE_DIR/*/ | xargs -n 1 basename ))
+    for instanceName in "${images[@]}"
+    do
+        echo "   $instanceName"
+    done
+    exit $?
+;;
+create-overlay)
+    if [[ -z "$2" ]]; then
+        echo "${RED}Please specify an overlay instance name.${NORMAL}"
+        exit 1
+    fi
+
+    if [[ -z "$3" ]]; then
+        echo "${RED}Please specify an image name (from an already installed image).${NORMAL}"
+        exit 1
+    fi
+
+    OVERLAY_NAME="$2"
+    IMG_NAME="$3"
+    OVERLAY_PATH="$OVERLAY_INSTANCE_DIR/$OVERLAY_NAME"
+    IMG_PATH=$OVERLAY_IMAGES_DIR/$IMG_NAME
+
+    if [[ -d "$OVERLAY_PATH" ]]; then
+        echo "${RED}The overlay already exists. Select another name or delete the current overlay.${NORMAL}"
+        exit 1
+    fi
+
+    # An instance directory looks like this:
+    #<$OVERLAY_INSTANCE_DIR>/
+    #└── <instance name>/
+    #    ├── rootfs/         This is the directory which is used to mount the overlay fs
+    #    ├── working/        The dir used for atomic file operations by ovelayfs
+    #    ├── changes/        The upper dir for overlayfs which holds all fs modifications
+    #    └── image-name      File containing the image name to use for the lower overlayfs dir
+
+    mkdir -p $OVERLAY_PATH/rootfs
+    mkdir    $OVERLAY_PATH/working
+    mkdir    $OVERLAY_PATH/changes
+    echo "$IMG_NAME" > $OVERLAY_PATH/image-name
+
+;;
+mount-overlay)
+    getOverlayOpts $*
+
+    IMG_NAME="$(cat $OVERLAY_PATH/image-name)"
+
+    if [[ -z "$IMG_NAME" ]]; then
+        echo "${RED}The overlay image-name is invalid: '$IMG_NAME'.${NORMAL}"
+        exit 1
+    fi
+
+    IMG_PATH=$OVERLAY_IMAGES_DIR/$IMG_NAME
+
+    if [[ ! -d "$IMG_PATH" ]]; then
+        echo "${RED}The image does not exist: '$IMG_PATH'.${NORMAL}"
+        exit 1
+    fi
+
+    # check if this ia already mounted
+    /usr/bin/mountpoint $OVERLAY_PATH/rootfs > /dev/null
+
+    if [[ $? -eq 0 ]]; then
+        echo "${RED}The image is already mounted.${NORMAL}"
+        exit 1
+    fi
+
+    # mount the fs
+    echo "   $OVERLAY_PATH/rootfs"
+    /usr/bin/mount -t overlay -o lowerdir=$IMG_PATH,upperdir=$OVERLAY_PATH/changes,workdir=$OVERLAY_PATH/working overlayfs $OVERLAY_PATH/rootfs
+    exit $?
+;;
+info)
+    getOverlayOpts $*
+
+    echo "${BOLD}Overlay '$OVERLAY_NAME' info:${NORMAL}"
+    echo "   Backing Image: $(cat $OVERLAY_PATH/image-name)"
+    echo "   Mount Point: $OVERLAY_PATH/rootfs"
+    echo "   Is Mounted: $(/usr/bin/mountpoint $OVERLAY_PATH/rootfs)"
+
+;;
+status)
+    getOverlayOpts $*
+    /usr/bin/mountpoint $OVERLAY_PATH/rootfs
+    exit $?
+;;
+umount-overlay)
+    getOverlayOpts $*
+    /usr/bin/umount $OVERLAY_PATH/rootfs
+    exit $?
+;;
+rename-overlay)
+    getOverlayOpts $*
+
+    NEW_OVERLAY_NAME="$3"
+    CUR_OVERLAY_PATH="$OVERLAY_INSTANCE_DIR/$OVERLAY_NAME"
+    NEW_OVERLAY_PATH="$OVERLAY_INSTANCE_DIR/$NEW_OVERLAY_NAME"
+
+    if [[ -d "$NEW_OVERLAY_PATH" ]]; then
+        echo "${RED}The overlay already exists: '$NEW_OVERLAY_NAME'.${NORMAL}"
+        exit 1
+    fi
+
+    # check if this ia already mounted
+    /usr/bin/mountpoint $OVERLAY_PATH/rootfs > /dev/null
+
+    if [[ $? -eq 0 ]]; then
+        echo "${RED}The image is currently mounted. Unmount first to rename.${NORMAL}"
+        exit 1
+    fi
+
+    mv "$CUR_OVERLAY_PATH" "$NEW_OVERLAY_PATH"
+    exit $?
+;;
+reset-overlay)
+    getOverlayOpts $*
+
+    # check if this ia already mounted
+    /usr/bin/mountpoint $OVERLAY_PATH/rootfs > /dev/null
+
+    if [[ $? -eq 0 ]]; then
+        echo "${RED}The image is currently mounted. Unmount first to rename.${NORMAL}"
+        exit 1
+    fi
+
+    rm -rf  $OVERLAY_PATH/working
+    rm -rf  $OVERLAY_PATH/changes
+
+    mkdir  $OVERLAY_PATH/working
+    mkdir  $OVERLAY_PATH/changes
+
+;;
+delete-overlay)
+    echo "${RED}Operation not implemented.${NORMAL}"
+    exit -1
+;;
+show-changes)
+    echo "${RED}Operation not implemented.${NORMAL}"
+    exit -1
+;;
+help)
+    usage
+;;
+*)
+    echo "${RED}Error: Operation '$*' not supported.${NORMAL}"
+    echo
+    $0 help | more
+    exit 1
+;;
+esac
