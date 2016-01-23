@@ -121,26 +121,26 @@ make, tar-overlay was born!
 tar-overlay [command] [options]
 
 Image commands:
-   install-image <tar-file>   Take the given tar and make it available as in immutable image.
-   list-images                List all known images.
+    install-image <tar-file>   Take the given tar and make it available as in immutable image.
+    list-images                List all known images.
 
 Overlay Commands:
-   list-overlays                       List image instantiations.
-   create-overlay <name> <image-name>  Instantiate an image (make an instance).
-   mount-overlay  <name>               Mount an instantiation for use.
-   umount-overlay <name>               Unmount an instantiation.
-   rename-overlay <name> <new name>    Rename the given instantiation.
-   info <name>                         Show all information regarding the given overlay name.
-   status <name>                       Shows if the given overlay is mounted.
-   reset-overlay <name>                Undo all changes made to original image.
-   show-changes <name>                 Show a tree of all modified files
+    create-overlay <name> <image-name>  Instantiate an image (make an instance).
+    list-overlays                       List image instantiations.
+    mount-overlay  <name>               Mount an instantiation for use.
+    mount-all-overlays                  Mount all overlays.
+    info <name>                         Show all information regardin the given overlay name.
+    rename-overlay <name> <new name>    Rename the given instantiation.
+    reset-overlay <name>                Undo all changes made to original image.
+    show-changes <name>                 Show a tree of all modified files
+    status <name>                       Shows if the given overlay is mounted.
+    umount-overlay <name>               Unmount an instantiation.
+    unmount-all-overlays                Unmount all overlays.
 
 Future Commands:
-   rename-image <iamge-name>    Rename the given image.
-   delete-image <image-name>    Delete the given image.
-   mount-image                  Mounts an image directly for modification (not advised).
-   umount-image                 Unmounts a directly mounted image.
-   delete-overlay <name>        Delete the given instantiation.
-   mount-all-overlays           Mount all overlays
-   unmount-all-overlays         Unmount all overlays
+    rename-image <iamge-name>    Rename the given image.
+    delete-image <image-name>    Delete the given image.
+    mount-image                  Mounts an image directly (not advised).
+    umount-image                 Unmounts a directly mounted image.
+    delete-overlay <name>        Delete the given instantiation.
 ```
