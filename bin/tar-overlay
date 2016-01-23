@@ -50,17 +50,17 @@ ${BOLD}Image commands:${NORMAL}
     list-images                List all known images.
 
 ${BOLD}Instance Commands:${NORMAL}
-    create-overlay <name> <image-name>  Instantiate an image (make an instance).
-    list-overlays                       List image instantiations.
-    mount-overlay  <name>               Mount an instantiation for use.
-    mount-all-overlays                  Mount all overlays.
-    info <name>                         Show all information regardin the given overlay name.
-    rename-overlay <name> <new name>    Rename the given instantiation.
-    reset-overlay <name>                Undo all changes made to original image.
-    show-changes <name>                 Show a tree of all modified files
-    status <name>                       Shows if the given overlay is mounted.
-    umount-overlay <name>               Unmount an instantiation.
-    unmount-all-overlays                Unmount all overlays.
+    create <name> <image-name>  Instantiate an image (make an instance).
+    list                        List image instantiations.
+    mount  <name>               Mount an instantiation for use.
+    mount-all                   Mount all overlays.
+    info <name>                 Show all information regardin the given overlay name.
+    rename <name> <new name>    Rename the given instantiation.
+    reset <name>                Undo all changes made to original image.
+    show-changes <name>         Show a tree of all modified files
+    status <name>               Shows if the given overlay is mounted.
+    umount <name>               Unmount an instantiation.
+    unmount-all                 Unmount all overlays.
 
 EndOfHelp
 #${BOLD}Future Commands:${NORMAL}
@@ -68,7 +68,7 @@ EndOfHelp
 #    delete-image <image-name>    Delete the given image.
 #    mount-image                  Mounts an image directly (not advised).
 #    umount-image                 Unmounts a directly mounted image.
-#    delete-overlay <name>        Delete the given instantiation.
+#    delete <name>                Delete the given instantiation.
 }
 
 getOverlayOpts () {
@@ -172,7 +172,7 @@ list-images)
     done
     exit $?
 ;;
-list-overlays)
+list)
     if [ ! "$(ls -A $OVERLAY_IMAGES_DIR)" ]; then
         echo "${BOLD}No overlay instances have been created.${NORMAL}"
         exit 0
@@ -186,7 +186,7 @@ list-overlays)
     done
     exit $?
 ;;
-create-overlay)
+create)
     if [[ -z "$2" ]]; then
         echo "${RED}Please specify an overlay instance name.${NORMAL}"
         exit 1
@@ -221,7 +221,7 @@ create-overlay)
     echo "$IMG_NAME" > $OVERLAY_PATH/image-name
 
 ;;
-mount-overlay)
+mount)
     getOverlayOpts $*
 
     IMG_NAME="$(cat $OVERLAY_PATH/image-name)"
@@ -252,7 +252,7 @@ mount-overlay)
     /usr/bin/mount -t overlay -o lowerdir=$IMG_PATH,upperdir=$OVERLAY_PATH/changes,workdir=$OVERLAY_PATH/working overlayfs $OVERLAY_PATH/rootfs
     exit $?
 ;;
-mount-all-overlays)
+mount-all)
     if [ ! "$(ls -A $OVERLAY_IMAGES_DIR)" ]; then
         exit 0
     fi
@@ -283,13 +283,13 @@ mount-all-overlays)
     # Don't show an error when exiting now that all operations have completed
     trap - EXIT
 ;;
-umount-overlay)
+umount)
     getOverlayOpts $*
     set +e # ensure the script does not exit upon error
     /usr/bin/umount $OVERLAY_PATH/rootfs
     exit $?
 ;;
-umount-all-overlays)
+umount-all)
     if [ ! "$(ls -A $OVERLAY_IMAGES_DIR)" ]; then
         exit 0
     fi
@@ -317,7 +317,7 @@ umount-all-overlays)
     # Don't show an error when exiting now that all operations have completed
     trap - EXIT
 ;;
-rename-overlay)
+rename)
     getOverlayOpts $*
 
     NEW_OVERLAY_NAME="$3"
@@ -362,7 +362,7 @@ status)
     echo $ismounted
     exit 0
 ;;
-reset-overlay)
+reset)
     getOverlayOpts $*
 
     # check if this ia already mounted
@@ -383,7 +383,7 @@ reset-overlay)
     mkdir  $OVERLAY_PATH/changes
 
 ;;
-delete-overlay)
+delete)
     echo "${RED}Operation not implemented.${NORMAL}"
     exit -1
 ;;

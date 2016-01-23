@@ -1,6 +1,8 @@
 # Tar-Overlay
 A shell script which creates and manages named overlayfs mounts backed by the contents from tar files.
 
+Note: this is a work in progress, so it is not stable yet.
+
 ## Example
 Given a tar with a set of files, create two independent scratch 'instances' where you can add, modify,
 and delete files that can be reverted on command:
@@ -125,22 +127,22 @@ Image commands:
     list-images                List all known images.
 
 Overlay Commands:
-    create-overlay <name> <image-name>  Instantiate an image (make an instance).
-    list-overlays                       List image instantiations.
-    mount-overlay  <name>               Mount an instantiation for use.
-    mount-all-overlays                  Mount all overlays.
-    info <name>                         Show all information regardin the given overlay name.
-    rename-overlay <name> <new name>    Rename the given instantiation.
-    reset-overlay <name>                Undo all changes made to original image.
-    show-changes <name>                 Show a tree of all modified files
-    status <name>                       Shows if the given overlay is mounted.
-    umount-overlay <name>               Unmount an instantiation.
-    unmount-all-overlays                Unmount all overlays.
+    create <name> <image-name>  Instantiate an image (make an instance).
+    list                        List image instantiations.
+    mount  <name>               Mount an instantiation for use.
+    mount-all                   Mount all overlays.
+    info <name>                 Show all information regardin the given overlay name.
+    rename <name> <new name>    Rename the given instantiation.
+    reset <name>                Undo all changes made to original image.
+    show-changes <name>         Show a tree of all modified files
+    status <name>               Shows if the given overlay is mounted.
+    umount <name>               Unmount an instantiation.
+    unmount-all                 Unmount all overlays.
 
 Future Commands:
     rename-image <iamge-name>    Rename the given image.
     delete-image <image-name>    Delete the given image.
     mount-image                  Mounts an image directly (not advised).
     umount-image                 Unmounts a directly mounted image.
-    delete-overlay <name>        Delete the given instantiation.
+    delete <name>                Delete the given instantiation.
 ```
