@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e  # exit on error
+set -u  # error on undefined variables
 
 RED=$(tput setaf 1)$(tput bold)
 NORMAL=$(tput sgr0)
@@ -13,8 +14,6 @@ GREEN=$(tput setaf 2)$(tput bold)
 # this script (without creating a new process).
 [ $(whoami) = root ] || exec sudo $0 $*
 
-set -u  # error on undefined variables
-
 # A non-interactive, non-login shell (or similar) does not source the
 # /etc/profile env scripts. This should be done manually.
 OVERLAY_BIN_PATH=$(dirname $(readlink -f $0))
@@ -22,8 +21,9 @@ OVERLAY_STORE_PATH=$(realpath $OVERLAY_BIN_PATH/../store)
 OVERLAY_IMAGES_DIR=$OVERLAY_STORE_PATH/images
 OVERLAY_INSTANCE_DIR=$OVERLAY_STORE_PATH/instances
 
-set +u  # now that the required dirs have been established, allow the script to handle any
-        # undefined variables on a case-by-case basis
+# now that the required dirs have been established, allow the script to handle any
+# undefined variables on a case-by-case basis
+set +u
 
 # Ctrl-C immediately exits the control script
 trap "echo '${RED}Canceling operation and exiting.${NORMAL}'; exit" SIGHUP SIGINT SIGTERM
@@ -46,13 +46,14 @@ ${BOLD}tar-overlay - Create and manage named, overlayfs mounts backed by the con
     $(basename $0) <command> [options]
 
 ${BOLD}Image commands:${NORMAL}
-    install-image <tar-file>   Take the given tar and make it available as in immutable image.
+    install-image <tar-file>   Take the given tar and make it available as an immutable image.
     list-images                List all known images.
 
 ${BOLD}Instance Commands:${NORMAL}
     create <name> <image-name>  Instantiate an image (make an instance).
+    get-mount-path              Shows the rootfs path for the given instance.
     list                        List image instantiations.
-    mount  <name>               Mount an instantiation for use.
+    mount <name>                Mount an instantiation for use.
     mount-all                   Mount all overlays.
     info <name>                 Show all information regardin the given overlay name.
     rename <name> <new name>    Rename the given instantiation.
@@ -60,7 +61,7 @@ ${BOLD}Instance Commands:${NORMAL}
     show-changes <name>         Show a tree of all modified files
     status <name>               Shows if the given overlay is mounted.
     umount <name>               Unmount an instantiation.
-    unmount-all                 Unmount all overlays.
+    umount-all                  Unmount all overlays.
 
 EndOfHelp
 #${BOLD}Future Commands:${NORMAL}
@@ -173,7 +174,7 @@ list-images)
     exit $?
 ;;
 list)
-    if [ ! "$(ls -A $OVERLAY_IMAGES_DIR)" ]; then
+    if [ ! "$(ls -A $OVERLAY_INSTANCE_DIR)" ]; then
         echo "${BOLD}No overlay instances have been created.${NORMAL}"
         exit 0
     fi
@@ -243,12 +244,12 @@ mount)
     /usr/bin/mountpoint $OVERLAY_PATH/rootfs > /dev/null
 
     if [[ $? -eq 0 ]]; then
-        echo "${RED}The image is already mounted.${NORMAL}"
-        exit 1
+        #echo "${RED}The image is already mounted.${NORMAL}"
+        exit 0
     fi
 
     # mount the fs
-    echo "$OVERLAY_PATH/rootfs"
+    #echo "$OVERLAY_PATH/rootfs"
     /usr/bin/mount -t overlay -o lowerdir=$IMG_PATH,upperdir=$OVERLAY_PATH/changes,workdir=$OVERLAY_PATH/working overlayfs $OVERLAY_PATH/rootfs
     exit $?
 ;;
@@ -285,7 +286,16 @@ mount-all)
 ;;
 umount)
     getOverlayOpts $*
+
+    # check if this ia already unmounted, the return code may be non-zero
     set +e # ensure the script does not exit upon error
+    /usr/bin/mountpoint $OVERLAY_PATH/rootfs > /dev/null
+
+    if [[ $? -ne 0 ]]; then
+        #echo "${RED}The image is not mounted.${NORMAL}"
+        exit 0
+    fi
+
     /usr/bin/umount $OVERLAY_PATH/rootfs
     exit $?
 ;;
@@ -354,6 +364,12 @@ info)
     echo "   Is Mounted: $ismounted"
 
 ;;
+get-mount-path)
+    getOverlayOpts $*
+
+    echo "$OVERLAY_PATH/rootfs"
+
+;;
 status)
     getOverlayOpts $*
     set +e # ensure the script does not exit upon error
@@ -384,8 +400,21 @@ reset)
 
 ;;
 delete)
-    echo "${RED}Operation not implemented.${NORMAL}"
-    exit -1
+    getOverlayOpts $*
+
+    # check if this ia already mounted
+    set +e # ensure the script does not exit upon error
+    /usr/bin/mountpoint $OVERLAY_PATH/rootfs > /dev/null
+
+    if [[ $? -eq 0 ]]; then
+        echo "${RED}The image is currently mounted. Unmount first to rename.${NORMAL}"
+        exit 1
+    fi
+
+    set -e # exit on the first error
+
+    rm -rf $OVERLAY_PATH
+    exit $?
 ;;
 show-changes)
     getOverlayOpts $*

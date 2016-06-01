@@ -129,7 +129,7 @@ Image commands:
 Overlay Commands:
     create <name> <image-name>  Instantiate an image (make an instance).
     list                        List image instantiations.
-    mount  <name>               Mount an instantiation for use.
+    mount <name>                Mount an instantiation for use.
     mount-all                   Mount all overlays.
     info <name>                 Show all information regardin the given overlay name.
     rename <name> <new name>    Rename the given instantiation.
@@ -137,7 +137,7 @@ Overlay Commands:
     show-changes <name>         Show a tree of all modified files
     status <name>               Shows if the given overlay is mounted.
     umount <name>               Unmount an instantiation.
-    unmount-all                 Unmount all overlays.
+    umount-all                  Unmount all overlays.
 
 Future Commands:
     rename-image <iamge-name>    Rename the given image.
